@@ -1,0 +1,16 @@
+{
+  "name": "study-05-filesystem-history",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "tsx src/main.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "tsup": "^7.1.0",
+    "tsx": "^3.12.7"
+  }
+}
