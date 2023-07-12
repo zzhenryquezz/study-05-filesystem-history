@@ -10,6 +10,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@types/node": "^20.4.1",
     "tsup": "^7.1.0",
     "tsx": "^3.12.7"
   }
