@@ -1,4 +1,4 @@
 node_modules
 
-repositories/*
-!repositories/.gitkeep
+data/*
+!data/.gitkeep
