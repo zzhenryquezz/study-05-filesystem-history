@@ -1,8 +1,22 @@
 import { promises as fs } from "fs"
+import { resolve as pathResolve, dirname } from "path"
 
 export function useFs(){
+
+    function pwd(){
+        return process.cwd()
+    }
+    
+    function resolve(...args: string[]){
+        return pathResolve(pwd(), ...args)
+    }
+
     async function exists(...path: string[]){
-        return fs.stat(path.join('/')).then(() => true).catch(() => false)
+        return fs.stat(resolve(...path)).then(() => true).catch(() => false)
+    }
+    
+    async function isFolder(...path: string[]){
+        return fs.stat(resolve(...path)).then(stat => stat.isDirectory()).catch(() => false)
     }
 
     async function mkdir(path: string) {
@@ -11,7 +25,7 @@ export function useFs(){
 
     async function write(path: string, content: any) {
 
-        const folderPath = path.split('/').slice(0, -1).join('/')
+        const folderPath = dirname(path)
 
         const folderExists = await exists(folderPath)
 
@@ -22,9 +36,22 @@ export function useFs(){
         await fs.writeFile(path, content)
     }
 
+    async function read(path: string) {
+        return fs.readFile(path, 'utf-8')
+    }
+
+    async function readDir(path: string) {
+        return fs.readdir(path)
+    }
+
     return {
         exists,
+        isFolder,
         mkdir,
-        write
+        write,
+        read,
+        readDir,
+        resolve,
+        pwd
     }
 }

@@ -9,7 +9,7 @@ export function useArgs(baseArgs: string[]) {
         const [current, next] = queue
 
         if (current.startsWith('--')) {
-            flags[current.slice(2)] = next
+            flags[current.slice(2)] = next || 'true'
 
             queue.splice(0, 2)
 

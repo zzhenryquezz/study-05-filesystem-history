@@ -1,5 +1,8 @@
-import init from './commands/init'
+#!/usr/bin/env node
 
+import init from './commands/init'
+import hashObject from './commands/hash-object'
+import cat from './commands/cat'
 
 async function main() {
     
@@ -7,13 +10,11 @@ async function main() {
 
     const commands = new Map()   
     
-    // init command   
     commands.set('init', init)
-
-    // add command
-        
-    // commit command
     
+    commands.set('cat', cat)
+
+    commands.set('hash-object', hashObject)
 
     const command = commands.get(commandName)
 

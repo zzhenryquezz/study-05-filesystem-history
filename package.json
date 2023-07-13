@@ -4,10 +4,13 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "tsx src/main.ts"
+    "start": "tsx src/main.ts",
+    "build": "tsup src/main.ts --format cjs --minify",
+    "dev": "tsup src/main.ts --format cjs --watch"
   },
-  "keywords": [],
-  "author": "",
+  "bin": {
+    "fvc": "dist/main.js"
+  },
   "license": "ISC",
   "devDependencies": {
     "@types/node": "^20.4.1",

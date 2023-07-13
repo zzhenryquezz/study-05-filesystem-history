@@ -1,16 +1,19 @@
 import { resolve } from 'path'
 import { useFs } from '../utils/fs'
+import FVCBlob from './FVCBlob'
+import FVCObject from './FVCObject'
+import FVCTree from './FVCTree'
 
 const fs = useFs()
 
 export default class FVCRepository {
-    public path: string
+    public workTree: string
     public fvcPath: string
 
-    constructor(path: string){
-        this.path = path
+    constructor(workTree: string){
+        this.workTree = workTree
         
-        this.fvcPath = resolve(path, '.fvc')
+        this.fvcPath = resolve(workTree, '.fvc')
     }
 
     public resolve(...path: string[]){
@@ -25,7 +28,7 @@ export default class FVCRepository {
         return fs.write(this.resolve(path), content)
     }
 
-    public static async findRepository(path = ".", required = true){
+    public static async findRepository(path = "."): Promise<FVCRepository> {
         const fullPath = resolve(path)
 
         const fvcPath = resolve(fullPath, '.fvc')
@@ -40,14 +43,86 @@ export default class FVCRepository {
 
         const isRoot = parentPath === fullPath
 
-        if(isRoot && required){
+        if(isRoot){
             throw new Error('Not a repository')
         }
 
-        if(isRoot && !required){
-            return null
+        return FVCRepository.findRepository(parentPath)
+    }
+
+    public async hashObject(path: string){
+        const filePath = resolve(this.workTree, path)
+
+        const isFolder = await fs.isFolder(filePath)
+
+        if (!isFolder) {
+            const fileContent = await fs.read(filePath)
+
+            const contents = [`type:blob;`, `\0`, fileContent].join('')
+
+            const object = new FVCBlob(contents)
+
+            await this.writeObject(object)
+
+            return object
         }
 
-        return FVCRepository.findRepository(parentPath)
+        const files = await fs.readDir(filePath)
+        let contents = 'type:tree;\0'
+
+        for await (const file of files) {
+            const object = await this.hashObject(resolve(path, file))
+
+            contents += `${object.type} ${object.hash()} ${file}\n`
+        }
+
+        const object = new FVCTree(contents)
+
+        await this.writeObject(object)
+
+        return object
+
+    }
+
+    public async readObject(hash: string) {
+        const begin = hash.slice(0, 2)
+        const end = hash.slice(2)
+
+        const folder = this.resolve('objects', begin)
+
+        const all = await fs.readDir(folder)
+
+        let search = all.find(filename => filename.startsWith(end))
+    
+        if(!search){
+            throw new Error('Object not found')
+        }
+    
+        const filename = this.resolve('objects', begin, search)
+
+        const bytes = await fs.read(filename)
+
+        const object = new FVCObject(bytes)
+
+        if(object.type === 'blob'){
+            return new FVCBlob(bytes)
+        }
+
+        if(object.type === 'tree'){
+            return new FVCTree(bytes)
+        }
+
+        return object
+    }
+
+    public async writeObject(object: FVCObject){
+        const hash = object.hash()
+
+        const begin = hash.slice(0, 2)
+        const end = hash.slice(2)
+
+        const filename = this.resolve('objects', begin, end)
+
+        await fs.write(filename, object.raw())
     }
 }

@@ -1,22 +1,12 @@
 import { resolve } from "path"
-import { useArgs } from "../utils/args"
 import { useFs } from "../utils/fs"
 import FVCRepository from "../entities/FVCRepository"
 
 
-export default async function (baseArgs: string[]){
-
-
+export default async function (){
     const fs = useFs()
-    const { args } = useArgs(baseArgs)
-    const path = args[0]
 
-    if (!path) {
-        console.error('You must provide a path to init')
-        return
-    }
-
-    const folderPath = resolve(process.cwd(), args[0])
+    const folderPath = resolve(process.cwd())
 
     const folderExists = await fs.exists(folderPath)
 
@@ -41,19 +31,7 @@ export default async function (baseArgs: string[]){
     const repository = new FVCRepository(folderPath)
 
     // folders
-    await repository.makeFolder('branches')
     await repository.makeFolder('objects')
-    await repository.makeFolder('refs', "tags")
-
-    // files
-    await repository.makeFile('description', 'Unnamed repository; edit this file \'description\' to name the repository.\n')
-    await repository.makeFile('HEAD', 'ref: refs/heads/main\n')
-    await repository.makeFile('config', [
-        '[core]',
-        '\trepositoryformatversion = 0',
-        '\tfilemode = true',
-        '\tbare = false',
-    ].join('\n') + '\n')
 
     console.log('Initialized empty FVC repository in', folderPath)
 }
