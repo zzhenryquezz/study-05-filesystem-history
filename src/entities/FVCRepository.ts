@@ -3,6 +3,7 @@ import { useFs } from '../utils/fs'
 import FVCBlob from './FVCBlob'
 import FVCObject from './FVCObject'
 import FVCTree from './FVCTree'
+import FVCCommit from './FVCCommit'
 
 const fs = useFs()
 
@@ -23,8 +24,12 @@ export default class FVCRepository {
     public makeFolder(...path: string[]){
         return fs.mkdir(this.resolve(...path))
     }
-
+    
     public makeFile(path: string, content: string){
+        return fs.write(this.resolve(path), content)
+    }
+    
+    public write(path: string, content: string){
         return fs.write(this.resolve(path), content)
     }
     
@@ -54,21 +59,58 @@ export default class FVCRepository {
         return FVCRepository.findRepository(parentPath)
     }
 
-    public async readLastTree(){
-        const headPath = this.resolve('HEAD')
-
-        const head = await fs.read(headPath)
+    public async findLastCommit(){
+        const head = await this.read('HEAD')
 
         if(!head){
             return null
         }
 
-        console.log(head)
+        const commit = await this.readObject(head)
 
+        return commit as FVCCommit
+    }
 
-        // const hash = head.split(':')[1].trim()
+    public async findLastTree(){
+        const commit = await this.findLastCommit()
 
-        // return this.readObject(hash)
+        if(!commit){
+            return null
+        }
+
+        const tree = await this.readObject(commit.tree)
+
+        return tree as FVCTree
+    }
+
+    public async createStagedTree(){
+        const index = await this.read('INDEX')
+        
+        const lastTree = await this.findLastTree()
+        const children = lastTree?.findFiles() || []
+
+        const stagedFiles = index.split('\n').filter(Boolean)
+
+        for await (const file of stagedFiles) {
+            const object = await this.hashAndWriteObject(file)
+
+            const index = children.findIndex(child => child.filename === file)
+
+            if(index !== -1){
+                children[index].hash = object.hash()
+                continue
+            }
+
+            children.push({
+                type: object.type,
+                hash: object.hash(),
+                filename: file
+            })
+        }
+
+        const tree = FVCTree.fromEntries(children)
+
+        return tree
     }
 
     public async hashObject(path: string){
@@ -98,7 +140,11 @@ export default class FVCRepository {
             children.push(object)
         }
 
-        return new FVCTree(contents, children)
+        const tree = new FVCTree(contents)
+
+        tree.children = children
+
+        return tree
 
     }
 
@@ -141,6 +187,10 @@ export default class FVCRepository {
 
         if(object.type === 'tree'){
             return new FVCTree(bytes)
+        }
+
+        if(object.type === 'commit'){
+            return new FVCCommit(bytes)
         }
 
         return object

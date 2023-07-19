@@ -26,5 +26,5 @@ export default async function (baseArgs: string[]){
         return
     }
 
-    console.log(object?.serialize())    
+    console.log(object?.content())    
 }

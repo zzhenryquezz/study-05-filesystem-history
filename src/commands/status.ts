@@ -1,13 +1,10 @@
 import { useArgs } from "../utils/args"
 import FVCRepository from "../entities/FVCRepository"
 import FVCTree from "../entities/FVCTree"
-import { diffChars } from "diff"
 
-import { logger, sticker } from "@poppinss/cliui"
+import { logger } from "@poppinss/cliui"
 
 export default async function (baseArgs: string[]){
-
-    const { args, flags } = useArgs(baseArgs)
 
     const repository = await FVCRepository.findRepository()
     
@@ -15,37 +12,54 @@ export default async function (baseArgs: string[]){
 
     const stagedFiles = staged.split('\n').filter(Boolean)
 
-    const currentTree = await repository.hashObject('.')
+    const currentTree = await repository.hashObject('.') as FVCTree
 
-    // diff
-    const output = sticker()
-    
+    const lastTree = await repository.findLastTree()
+
+    const lastTreeChildren = lastTree?.findFiles() || []
+    const currentTreeChildren = currentTree.findFiles()
+
+    const addedEntries = currentTreeChildren.filter(f => {
+        const search = lastTreeChildren.find(f2 => f2.filename === f.filename)
+
+        if (stagedFiles.includes(f.filename)) return false
+
+        return !search
+    })
+
+    const changedEntries = currentTreeChildren.filter(f => {
+        const search = lastTreeChildren.find(f2 => f2.filename === f.filename)
+
+        if (!search) return false
+
+        if (stagedFiles.includes(f.filename)) return false
+
+        return search.hash !== f.hash
+    })
+
     if (stagedFiles.length) {
-        output
-            .add('STAGED FILES')
-            .add('')
-    
-        stagedFiles.forEach(filename => output.add(logger.colors.green(`${filename}`)))
+        logger.log('STAGED ENTRIES')
+
+        stagedFiles.forEach(f => logger.log(logger.colors.yellow('\t+ ' + f)))
     }
 
-    const diff = diffChars('', currentTree.serialize())
-
-    const files = diff
-        .filter(part => part.added || part.removed)
-        .map(part => (part.value.split(' ').at(-1) || '').trim())
-        .filter(f => !stagedFiles.includes(f))
-
-    if (files.length) {
-
-        if (stagedFiles.length) output.add('')
+    if (changedEntries.length) {
+        logger.log('CHANGED ENTRIES')
         
-        output
-            .add('UNTRACKED FILES')
-            .add('')
-
-        files.forEach(f => output.add(logger.colors.yellow(f)))
+        changedEntries.forEach(f => logger.log(logger.colors.blue('\t+ ' + f.filename)))
     }
+
+
+    if (addedEntries.length) {
+        logger.log('NEW ENTRIES')
         
-    output.render()
+        addedEntries.forEach(f => logger.log( logger.colors.green('\t+ ' + f.filename)))
+    }
+
+    const allEmpty = !addedEntries.length && !changedEntries.length && !stagedFiles.length
+
+    if (allEmpty) {
+        logger.log('Nothing to commit')
+    }
 
 }

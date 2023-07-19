@@ -7,8 +7,4 @@ export default class FVCBlob extends FVCObject {
     constructor(public data: string){
         super(data)
     }
-
-    public serialize(){
-        return this.data.slice(this.data.indexOf('\0') + 1)
-    }
 }

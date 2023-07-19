@@ -6,6 +6,8 @@ import cat from './commands/cat'
 import status from './commands/status'
 import add from './commands/add'
 import remove from './commands/remove'
+import commit from './commands/commit'
+import log from './commands/log'
 
 async function main() {
     
@@ -15,15 +17,19 @@ async function main() {
     
     commands.set('init', init)
     
+    commands.set('hash-object', hashObject)
+    
     commands.set('cat', cat)
-
-    commands.set('status', status)
 
     commands.set('add', add)
 
     commands.set('remove', remove)
 
-    commands.set('hash-object', hashObject)
+    commands.set('status', status)
+
+    commands.set('commit', commit)
+
+    commands.set('log', log)
 
     const command = commands.get(commandName)
 

@@ -19,12 +19,16 @@ export default class FVCObject {
         return this.data
     }
 
+    public content(){
+        return this.data.slice(this.data.indexOf('\0') + 1)
+    }
+
     public hash() {
         return crypto.createHash('sha256').update(this.raw()).digest('hex')
     }
 
-    public serialize(): any {
-        return this.data
+    public serialize() {
+        return this.raw()
     }
     
     public static deserialize(args: any): any {
