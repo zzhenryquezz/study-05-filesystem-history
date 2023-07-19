@@ -1,7 +1,0 @@
-# COMMAND
-COMMAND=$1
-
-# vars
-ARGS_AND_FLAGS=${@:2}
-
-npm start $COMMAND -- $ARGS_AND_FLAGS

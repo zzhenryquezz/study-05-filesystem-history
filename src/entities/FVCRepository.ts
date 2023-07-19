@@ -27,6 +27,10 @@ export default class FVCRepository {
     public makeFile(path: string, content: string){
         return fs.write(this.resolve(path), content)
     }
+    
+    public read(...path: string[]){
+        return fs.read(this.resolve(...path))
+    }
 
     public static async findRepository(path = "."): Promise<FVCRepository> {
         const fullPath = resolve(path)
@@ -50,6 +54,23 @@ export default class FVCRepository {
         return FVCRepository.findRepository(parentPath)
     }
 
+    public async readLastTree(){
+        const headPath = this.resolve('HEAD')
+
+        const head = await fs.read(headPath)
+
+        if(!head){
+            return null
+        }
+
+        console.log(head)
+
+
+        // const hash = head.split(':')[1].trim()
+
+        // return this.readObject(hash)
+    }
+
     public async hashObject(path: string){
         const filePath = resolve(this.workTree, path)
 
@@ -60,23 +81,33 @@ export default class FVCRepository {
 
             const contents = [`type:blob;`, `\0`, fileContent].join('')
 
-            const object = new FVCBlob(contents)
-
-            await this.writeObject(object)
-
-            return object
+            return new FVCBlob(contents)
         }
 
-        const files = await fs.readDir(filePath)
+        const allFiles = await fs.readDir(filePath)
+        const files = allFiles.filter(file => file !== '.fvc')
+        
         let contents = 'type:tree;\0'
+        const children: FVCObject[] = []
 
         for await (const file of files) {
             const object = await this.hashObject(resolve(path, file))
 
             contents += `${object.type} ${object.hash()} ${file}\n`
+
+            children.push(object)
         }
 
-        const object = new FVCTree(contents)
+        return new FVCTree(contents, children)
+
+    }
+
+    public async hashAndWriteObject(path: string){
+        const object = await this.hashObject(path)
+
+        if (object instanceof FVCTree) {
+            await Promise.all(object.children.map(async o => this.writeObject(o)))
+        }
 
         await this.writeObject(object)
 

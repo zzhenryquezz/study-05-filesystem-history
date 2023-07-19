@@ -3,9 +3,12 @@ import FVCObject from "./FVCObject"
 
 export default class FVCTree extends FVCObject {
     public type = 'tree'
+    public children: FVCObject[]
 
-    constructor(data: string){
+    constructor(data: string, children: FVCObject[] = []){
         super(data)
+
+        this.children = children
     }
 
     public serialize(){

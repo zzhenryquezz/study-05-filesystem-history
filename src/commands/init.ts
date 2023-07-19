@@ -32,6 +32,8 @@ export default async function (){
 
     // folders
     await repository.makeFolder('objects')
+    await repository.makeFile('HEAD', '')
+    await repository.makeFile('INDEX', '')
 
     console.log('Initialized empty FVC repository in', folderPath)
 }

@@ -3,6 +3,9 @@
 import init from './commands/init'
 import hashObject from './commands/hash-object'
 import cat from './commands/cat'
+import status from './commands/status'
+import add from './commands/add'
+import remove from './commands/remove'
 
 async function main() {
     
@@ -13,6 +16,12 @@ async function main() {
     commands.set('init', init)
     
     commands.set('cat', cat)
+
+    commands.set('status', status)
+
+    commands.set('add', add)
+
+    commands.set('remove', remove)
 
     commands.set('hash-object', hashObject)
 
