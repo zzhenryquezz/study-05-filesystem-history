@@ -83,6 +83,41 @@ export default class FVCRepository {
         return tree as FVCTree
     }
 
+    public async findHistory(path?: string){
+        const commits = [] as FVCCommit[]
+
+        const lastCommit = await this.findLastCommit()
+
+        if(!lastCommit) return commits
+
+        let hash = lastCommit.hash()
+
+        while (hash) {
+            const commit = await this.readObject(hash) as FVCCommit
+
+            if (!path) {
+                commits.push(commit)
+    
+                hash = commit.parent
+
+                continue
+            }
+
+            const tree = await this.readObject(commit.tree) as FVCTree
+
+            const files = tree.findFiles()
+
+            const exists = files.find(file => file.filename === path)
+
+            if(exists) commits.push(commit)
+
+            hash = commit.parent
+
+        }
+
+        return commits
+    }
+
     public async createStagedTree(){
         const index = await this.read('INDEX')
         

@@ -8,6 +8,7 @@ import add from './commands/add'
 import remove from './commands/remove'
 import commit from './commands/commit'
 import log from './commands/log'
+import show from './commands/show'
 
 async function main() {
     
@@ -28,6 +29,8 @@ async function main() {
     commands.set('status', status)
 
     commands.set('commit', commit)
+
+    commands.set('show', show)
 
     commands.set('log', log)
 
