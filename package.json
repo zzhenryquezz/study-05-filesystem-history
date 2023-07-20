@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@poppinss/cliui": "^3.0.5",
-    "diff": "^5.1.0"
+    "diff": "^5.1.0",
+    "fast-glob": "^3.3.0"
   }
 }

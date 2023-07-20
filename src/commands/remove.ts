@@ -21,7 +21,7 @@ export default async function (baseArgs: string[]){
     const stagedFiles = staged.split('\n').filter(Boolean)
 
     const content = stagedFiles
-        .filter(f => f !== path)
+        .filter(f => !f.includes(path))
         .filter((value, index, self) => self.indexOf(value) === index).join('\n')
 
     await repository.makeFile('INDEX', content)
