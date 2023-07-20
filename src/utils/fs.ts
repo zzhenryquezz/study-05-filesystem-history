@@ -44,6 +44,10 @@ export function useFs(){
         return fs.readdir(path)
     }
 
+    async function rm(path: string) {
+        return fs.rm(path, { recursive: true })
+    }
+
     return {
         exists,
         isFolder,
@@ -52,6 +56,7 @@ export function useFs(){
         read,
         readDir,
         resolve,
+        rm,
         pwd
     }
 }
