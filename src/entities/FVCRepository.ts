@@ -1,9 +1,11 @@
-import { resolve } from 'path'
+import { resolve, join, dirname, basename } from 'path'
 import { useFs } from '../utils/fs'
 import FVCBlob from './FVCBlob'
 import FVCObject from './FVCObject'
-import FVCTree from './FVCTree'
+import FVCTree, { FVCTreeEntry } from './FVCTree'
 import FVCCommit from './FVCCommit'
+import { IObjectRepository } from '../repositories/IObjectRepository'
+import { ObjectRepository } from '../repositories/implementations/ObjectRepository'
 
 const fs = useFs()
 
@@ -11,10 +13,14 @@ export default class FVCRepository {
     public workTree: string
     public fvcPath: string
 
-    constructor(workTree: string){
+    public readonly objectRepository: IObjectRepository
+
+    constructor(workTree: string, objectRepository?: IObjectRepository){
         this.workTree = workTree
         
         this.fvcPath = resolve(workTree, '.fvc')
+
+        this.objectRepository = objectRepository || new ObjectRepository(this.resolve('objects'))
     }
 
     public resolve(...path: string[]){
@@ -118,37 +124,176 @@ export default class FVCRepository {
         return commits
     }
 
-    public async createStagedTree(){
-        const index = await this.read('INDEX')
-        
-        const lastTree = await this.findLastTree()
-        const children = lastTree?.findFiles() || []
+    public async findAllTreeEntries(tree: FVCTree, parent?: string){
+        const entries = tree.findFiles()
 
-        const stagedFiles = index.split('\n').filter(Boolean)
-
-        for await (const file of stagedFiles) {
-            const object = await this.hashAndWriteObject(file)
-
-            const index = children.findIndex(child => child.filename === file)
-
-            if(index !== -1){
-                children[index].hash = object.hash()
+        for (const entry of entries) {
+            if (entry.type !== 'tree') {
                 continue
             }
 
-            children.push({
-                type: object.type,
-                hash: object.hash(),
-                filename: file
+            const childTree = await this.readObject(entry.hash) as FVCTree
+
+            const childEntries = await this.findAllTreeEntries(childTree, entry.filename)
+
+            childEntries.forEach(child => {
+                const exists = entries.some(e => e.filename === child.filename && e.hash === child.hash)
+
+                if (!exists) {
+                    entries.push(child)
+                }
             })
         }
 
-        const tree = FVCTree.fromEntries(children)
+        if (parent) {
+            entries.forEach(entry => {
+                entry.filename = join(parent, entry.filename)
+            })
+        }
 
-        return tree
+        return entries
+
     }
 
-    public async hashObject(path: string){
+    public async findIndexEntries(){
+        const index = await this.read('INDEX')
+
+        const entries = index.split('\n').filter(Boolean).map(line => {
+            const [hash, filename] = line.split(' ')
+
+            return { hash, filename }
+        })
+
+        return entries
+    }
+
+    public createTreeFromEntries(entries: FVCTreeEntry[], parent = '.'){
+
+        const folderFilenames = entries.filter(e => e.filename.includes('/')).map(e => dirname(e.filename))
+
+        // fix tree not added
+        for (const folder of folderFilenames) {
+            const exists = entries.find(e => e.filename === folder)
+
+            if(exists) continue
+
+            const children = entries.filter(e => dirname(e.filename) === folder)
+
+            const tree = FVCTree.fromEntries(children)
+
+            entries.push({
+                type: 'tree',
+                hash: tree.hash(),
+                filename: folder,
+            })
+        }
+
+        const treeEntries = [] as FVCTreeEntry[]
+        const treeChildren = [] as FVCObject[]
+
+        const rootEntries = entries.filter(entry => dirname(entry.filename) === parent)
+
+        for (const entry of rootEntries) {
+            if (entry.type !== 'tree') {
+                treeEntries.push(entry)
+                continue
+            }
+
+            const children = entries.filter(child =>  dirname(child.filename) === entry.filename)
+
+            const tree = this.createTreeFromEntries(children, entry.filename)
+
+            treeChildren.push(tree)
+
+            treeEntries.push({
+                type: 'tree',
+                hash: tree.hash(),
+                filename: entry.filename,
+            })
+        }
+
+        return FVCTree.fromEntries(treeEntries)
+
+    }
+
+    public async createStagedTree(){        
+        const headTree = await this.findLastTree()
+
+        const stagedEntries = await this.findIndexEntries()
+        
+        const entries = [] as FVCTreeEntry[]
+
+        // add entries from last commit
+        if (headTree) {
+            const headEntries = await this.findAllTreeEntries(headTree)
+
+            entries.push(...headEntries)
+        }
+
+        // add entries from staged
+        for (const staged of stagedEntries) {
+
+            const index = entries.findIndex(e => e.filename === staged.filename)
+
+            if(index !== -1){
+                entries[index].hash = staged.hash
+                continue
+            }
+
+            entries.push({
+                type: 'blob',
+                hash: staged.hash,
+                filename: staged.filename
+            })
+        }
+
+        const folders = entries
+            .filter(e => e.filename.includes('/'))
+            .map(e => dirname(e.filename))
+            .filter((value, index, self) => self.indexOf(value) === index)
+
+        folders.sort((a, b) => b.split('/').length - a.split('/').length)
+
+        // add folders 
+        for await (const folder of folders) {
+
+            const childrenEntries = entries.filter(e => dirname(e.filename) === folder).map(e => ({
+                type: e.type,
+                hash: e.hash,
+                filename: basename(e.filename)
+            }))
+
+            const tree = FVCTree.fromEntries(childrenEntries)
+
+            await this.writeObject(tree)
+
+            const index = entries.findIndex(e => e.filename === folder)
+
+            if(index !== -1){
+                entries[index].hash = tree.hash()
+                continue
+            }
+
+            entries.push({
+                type: 'tree',
+                hash: tree.hash(),
+                filename: folder,
+            })
+        }
+
+                
+
+        const rootEntries = entries.filter(entry => dirname(entry.filename) === '.')
+
+        const stagedTree = FVCTree.fromEntries(rootEntries)
+
+        await this.writeObject(stagedTree)
+
+        return stagedTree
+
+    }
+
+    public async createObject(path: string){
         const filePath = resolve(this.workTree, path)
 
         const isFolder = await fs.isFolder(filePath)
@@ -180,15 +325,10 @@ export default class FVCRepository {
         tree.children = children
 
         return tree
-
     }
 
-    public async hashAndWriteObject(path: string){
-        const object = await this.hashObject(path)
-
-        if (object instanceof FVCTree) {
-            await Promise.all(object.children.map(async o => this.writeObject(o)))
-        }
+    public async hashObject(path: string){
+        const object = await this.createObject(path)
 
         await this.writeObject(object)
 

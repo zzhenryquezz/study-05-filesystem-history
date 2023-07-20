@@ -19,6 +19,7 @@ export default async function (baseArgs: string[]){
 
     history.forEach(commit => {
         console.log(logger.colors.yellow(`commit ${commit.hash()}`))
+        console.log(`Tree: ${commit.tree}`)
         console.log(`Date: ${new Date(Number(commit.timestamp))}`)
         console.log(`\n\t${commit.message}`)
     })

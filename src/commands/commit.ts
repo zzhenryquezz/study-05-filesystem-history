@@ -3,13 +3,13 @@ import FVCRepository from "../entities/FVCRepository"
 
 import { logger } from "@poppinss/cliui"
 import FVCCommit from "../entities/FVCCommit"
-import FVCTree from "../entities/FVCTree"
 
 export default async function (baseArgs: string[]){
 
     const { flags } = useArgs(baseArgs)
 
     const message = flags['m']
+    const dryRun = flags['dry-run']
 
     if (!message) {
         logger.error('You must provide a message with, Ex: fvc commit -m "My commit message"')
@@ -21,8 +21,6 @@ export default async function (baseArgs: string[]){
 
     const lastCommit = await repository.findLastCommit()
 
-    const currentTree = await repository.hashObject('.') as FVCTree
-
     const stagedTree = await repository.createStagedTree()
 
     const commit = FVCCommit.from({
@@ -30,6 +28,18 @@ export default async function (baseArgs: string[]){
         parent: lastCommit?.hash(),
         message,
     })
+
+    if (dryRun) {
+
+        if (lastCommit) {
+            logger.log(logger.colors.yellow(`old: ${lastCommit?.hash()}`))
+            logger.log(`tree: ${stagedTree.hash()}\n`)
+        }
+
+        logger.log(logger.colors.yellow(`new: ${commit.hash()}`))
+        logger.log(`tree: ${commit.tree}`)
+        return
+    }
 
     await repository.writeObject(stagedTree)
     await repository.writeObject(commit)

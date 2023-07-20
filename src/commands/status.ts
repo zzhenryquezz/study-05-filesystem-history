@@ -10,50 +10,65 @@ export default async function (baseArgs: string[]){
     
     const staged = await repository.read('INDEX')
 
-    const stagedFiles = staged.split('\n').filter(Boolean)
+    const stagedFiles = staged.split('\n').filter(Boolean).map(f => {
+        const [hash, filename] = f.split(' ')
+        
+        return { hash, filename }
+    })
 
     const currentTree = await repository.hashObject('.') as FVCTree
 
     const lastTree = await repository.findLastTree()
 
-    const lastTreeChildren = lastTree?.findFiles() || []
-    const currentTreeChildren = currentTree.findFiles()
+    const committedTreeEntries = lastTree ? await repository.findAllTreeEntries(lastTree) : []
 
-    const addedEntries = currentTreeChildren.filter(f => {
-        const search = lastTreeChildren.find(f2 => f2.filename === f.filename)
+    const workTreeEntries = await repository.findAllTreeEntries(currentTree)
 
-        if (stagedFiles.includes(f.filename)) return false
+    const entries = workTreeEntries.filter(e => e.type !== 'tree')
 
-        return !search
+    const addedEntries = entries.filter(({ filename, hash }) => {
+        const committedEntry = committedTreeEntries.find(f => filename === f.filename)
+        
+        const stagedEntry = stagedFiles.find(f => filename === f.filename)
+
+        if (committedEntry) return false
+
+        if (stagedEntry) return false
+
+        return true
     })
 
-    const changedEntries = currentTreeChildren.filter(f => {
-        const search = lastTreeChildren.find(f2 => f2.filename === f.filename)
+    const changedEntries = entries.filter(({ filename, hash }) => {
+        const committedEntry = committedTreeEntries.find(f => filename === f.filename)
 
-        if (!search) return false
+        if (!committedEntry) return false
 
-        if (stagedFiles.includes(f.filename)) return false
+        if (committedEntry.hash === hash) return false
 
-        return search.hash !== f.hash
+        const stagedEntry = stagedFiles.find(f => filename === f.filename && f.hash === hash)
+
+        if (stagedEntry) return false
+        
+        return true       
     })
 
     if (stagedFiles.length) {
         logger.log('STAGED ENTRIES')
 
-        stagedFiles.forEach(f => logger.log(logger.colors.yellow('\t+ ' + f)))
+        stagedFiles.forEach(f => logger.log(logger.colors.yellow('+ ' + f.filename)))
     }
 
     if (changedEntries.length) {
         logger.log('CHANGED ENTRIES')
         
-        changedEntries.forEach(f => logger.log(logger.colors.blue('\t+ ' + f.filename)))
+        changedEntries.forEach(f => logger.log(logger.colors.blue('+ ' + f.filename)))
     }
 
 
     if (addedEntries.length) {
         logger.log('NEW ENTRIES')
         
-        addedEntries.forEach(f => logger.log( logger.colors.green('\t+ ' + f.filename)))
+        addedEntries.forEach(f => logger.log( logger.colors.green('+ ' + f.filename)))
     }
 
     const allEmpty = !addedEntries.length && !changedEntries.length && !stagedFiles.length

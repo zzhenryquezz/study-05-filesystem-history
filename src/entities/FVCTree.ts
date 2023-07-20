@@ -9,7 +9,7 @@ export interface FVCTreeEntry {
 
 export default class FVCTree extends FVCObject {
     public type = 'tree'
-    public children: FVCObject[]
+    public children: FVCObject[] = []
 
     constructor(data: string){
         super(data)
@@ -18,7 +18,7 @@ export default class FVCTree extends FVCObject {
     public findFiles(): FVCTreeEntry[] {
         const entries: FVCTreeEntry[] = []
 
-        this.data.slice(this.data.indexOf('\0') + 1).split('\n').filter(Boolean).forEach(item => {
+        this.content().split('\n').filter(Boolean).forEach(item => {
             const [type, hash, filename] = item.split(' ')
 
             entries.push({ type, filename, hash })
@@ -27,7 +27,17 @@ export default class FVCTree extends FVCObject {
         return entries
     }
 
-    public static async fromEntries(entries: FVCTreeEntry[]){
+    public static fromObjects(objects: FVCObject[], filenames: string[]){
+        const entries = objects.map((o, i) => ({
+            type: o.type,
+            hash: o.hash(),
+            filename: filenames[i]            
+        }))
+
+        return FVCTree.fromEntries(entries)
+    }
+
+    public static fromEntries(entries: FVCTreeEntry[]){
         let content = 'type:tree;\0'
 
         entries.forEach(({ type, hash, filename }) => {
