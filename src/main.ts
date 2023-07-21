@@ -10,6 +10,7 @@ import commit from './commands/commit'
 import log from './commands/log'
 import show from './commands/show'
 import checkout from './commands/checkout'
+import reset from './commands/reset'
 
 async function main() {
     
@@ -36,6 +37,8 @@ async function main() {
     commands.set('log', log)
 
     commands.set('checkout', checkout)
+
+    commands.set('reset', reset)
 
     const command = commands.get(commandName)
 

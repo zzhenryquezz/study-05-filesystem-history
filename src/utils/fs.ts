@@ -1,3 +1,5 @@
+import fg from 'fast-glob'
+
 import { promises as fs } from "fs"
 import { resolve as pathResolve, dirname } from "path"
 
@@ -48,6 +50,25 @@ export function useFs(){
         return fs.rm(path, { recursive: true })
     }
 
+    async function findAllFilesFromPaths(paths: string[]) {
+        const filenames: string[] = []
+
+        for await (const path of paths) {
+            const pathIsFolder = await isFolder(path)
+    
+            if (!pathIsFolder) {
+                filenames.push(path)
+                continue
+            }
+    
+            const children = await fg(resolve(path, '**/*'), { onlyFiles: true })
+    
+            filenames.push(...children)
+        }
+
+        return filenames
+    }
+
     return {
         exists,
         isFolder,
@@ -57,6 +78,7 @@ export function useFs(){
         readDir,
         resolve,
         rm,
-        pwd
+        pwd,
+        findAllFilesFromPaths
     }
 }

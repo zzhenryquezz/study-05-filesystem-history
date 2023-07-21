@@ -52,6 +52,18 @@ export default async function (baseArgs: string[]){
         return true       
     })
 
+    const deletedEntries = committedTreeEntries.filter(({ filename }) => {
+        const workTreeEntry = workTreeEntries.find(f => filename === f.filename)
+
+        if (workTreeEntry) return false
+
+        const stagedEntry = stagedFiles.find(f => filename === f.filename)
+
+        if (stagedEntry) return false
+
+        return true
+    })
+
     if (stagedFiles.length) {
         logger.log('STAGED ENTRIES')
 
@@ -71,7 +83,13 @@ export default async function (baseArgs: string[]){
         addedEntries.forEach(f => logger.log( logger.colors.green('+ ' + f.filename)))
     }
 
-    const allEmpty = !addedEntries.length && !changedEntries.length && !stagedFiles.length
+    if (deletedEntries.length) {
+        logger.log('DELETED ENTRIES')
+        
+        deletedEntries.forEach(f => logger.log( logger.colors.red('- ' + f.filename)))
+    }
+
+    const allEmpty = [stagedFiles, changedEntries, addedEntries, deletedEntries].every(e => !e.length)
 
     if (allEmpty) {
         logger.log('Nothing to commit')
