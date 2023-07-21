@@ -9,6 +9,7 @@ import remove from './commands/remove'
 import commit from './commands/commit'
 import log from './commands/log'
 import show from './commands/show'
+import checkout from './commands/checkout'
 
 async function main() {
     
@@ -33,6 +34,8 @@ async function main() {
     commands.set('show', show)
 
     commands.set('log', log)
+
+    commands.set('checkout', checkout)
 
     const command = commands.get(commandName)
 
